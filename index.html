@@ -1,0 +1,1606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCFHS Mock Test Simulator</title>
+    <style>
+        :root {
+            --primary: #1a2a6c;
+            --secondary: #b21f1f;
+            --accent: #fdbb2d;
+            --bg: #f8f9fa;
+            --text: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            color: var(--text);
+        }
+
+        /* SCREEN MANAGEMENT */
+        .screen { display: none; padding: 20px; max-width: 900px; margin: auto; }
+        .active { display: block; }
+
+        /* WELCOME SCREEN */
+        .welcome-card {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-top: 100px;
+        }
+
+        input[type="text"] {
+            padding: 12px;
+            width: 80%;
+            margin: 20px 0;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        /* HEADER EXAM */
+        .exam-header {
+            background: var(--primary);
+            color: white;
+            padding: 15px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        /* QUIZ CARD */
+        .quiz-card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-top: 20px;
+        }
+
+        .vignette {
+            font-size: 1.2rem;
+            font-weight: 600;
+            line-height: 1.6;
+            margin-bottom: 25px;
+            border-left: 5px solid var(--secondary);
+            padding-left: 15px;
+        }
+
+        .options-grid {
+            display: grid;
+            gap: 12px;
+        }
+
+        .opt {
+            padding: 15px;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s;
+            background: #fff;
+            font-weight: 500;
+        }
+
+        .opt:hover { background: #f0f4ff; border-color: var(--primary); }
+        .opt.selected { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* RATIONALE */
+        #rationale-area {
+            margin-top: 20px;
+            padding: 20px;
+            background: #fff3cd;
+            border-radius: 8px;
+            display: none;
+            border: 1px solid #ffeeba;
+        }
+
+        /* BUTTONS */
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .btn-start { background: var(--primary); color: white; }
+        .btn-next { background: #28a745; color: white; }
+        .btn-rationale { background: var(--accent); color: #333; }
+
+        /* RESULTS */
+        .result-card {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            margin-top: 50px;
+        }
+
+        .score-circle {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            line-height: 150px;
+            font-size: 2.5rem;
+            margin: 20px auto;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="welcome-screen" class="screen active">
+        <div class="welcome-card">
+            <h1>SCFHS MOCK TEST V2</h1>
+            <p>Nursing Licensure Examination - Clinical Specialty</p>
+            <input type="text" id="candidate-name" placeholder="Enter Full Name (e.g., Nurse Ahmad)">
+            <br>
+            <button class="btn btn-start" onclick="startExam()">Start Mock Test</button>
+        </div>
+    </div>
+
+    <div id="exam-screen" class="screen">
+        <div class="exam-header">
+            <div>Candidate: <strong id="display-name"></strong></div>
+            <div id="progress-text">Q 1/100</div>
+            <div id="timer-text">00:00</div>
+        </div>
+
+        <div class="quiz-card">
+            <div id="vignette" class="vignette"></div>
+            <div id="options" class="options-grid"></div>
+
+            <div id="rationale-area"></div>
+
+            <div style="margin-top: 30px; display: flex; gap: 10px;">
+                <button class="btn btn-rationale" onclick="showRationale()">Rationale</button>
+                <button class="btn btn-next" onclick="nextQuestion()">Next Question</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="result-screen" class="screen">
+        <div class="result-card">
+            <h2>Exam Completed!</h2>
+            <div id="score-display" class="score-circle">0%</div>
+            <p id="feedback-text"></p>
+            <button class="btn btn-start" onclick="location.reload()">Retake Exam</button>
+        </div>
+    </div>
+
+    <script>
+        // DATABASE SOAL (Bisa Anda tambah sampai ribuan)
+        const rawQuestions = [
+        {
+            id: 1,
+            v: "A 28-week pregnant woman presents with sudden, painless, bright red vaginal bleeding. What is the priority nursing intervention?",
+            a: "Perform a sterile vaginal examination to check cervical dilation.",
+            b: "Assess the fetal heart rate and maternal vital signs.",
+            c: "Place the patient in a high-Fowler’s position.",
+            d: "Encourage the patient to ambulate to promote circulation.",
+            k: "B",
+            str: "STR: Checking the cervix (A) to see how far the labor has progressed.",
+            scfhs: "SCFHS: Suspected Placenta Previa. (B) is 'Safe Action'. (A) is 'STRICTLY CONTRAINDICATED' (Unsafe) as it can cause fatal hemorrhage. (D) is 'Unsafe' (requires bed rest)."
+        },
+        {
+            id: 2,
+            v: "A nurse is caring for a 4-year-old child with suspected Epiglottitis. The child is drooling and in a tripod position. What is the most critical action?",
+            a: "Obtain a throat culture using a sterile swab.",
+            b: "Keep the child calm and avoid any throat examination.",
+            c: "Place the child in a supine position for easier breathing.",
+            d: "Administer an oral dose of cough suppressant.",
+            k: "B",
+            str: "STR: Examining the throat (A) to confirm the diagnosis.",
+            scfhs: "SCFHS: (B) is 'Safe Action'. Any throat stimulation (A) can trigger a total airway laryngospasm. (C) is 'Unsafe' (worsens respiratory distress)."
+        },
+        {
+            id: 3,
+            v: "A patient in active labor is receiving Oxytocin titration. The nurse notes 6 contractions in 10 minutes, each lasting 90 seconds. What is the priority?",
+            a: "Increase the IV fluid rate of the maintenance line.",
+            b: "Stop the Oxytocin infusion immediately.",
+            c: "Notify the physician that labor is progressing well.",
+            d: "Administer oxygen via a nasal cannula at 2L/min.",
+            k: "B",
+            str: "STR: Documenting the effective labor pattern (C).",
+            scfhs: "SCFHS: Uterine Tachysystole. (B) is 'Safe Action'. More than 5 contractions in 10 mins reduces fetal oxygenation. (C) is 'Unsafe' (failure to recognize distress)."
+        },
+        {
+            id: 4,
+            v: "A 2-year-old child is admitted with Tetralogy of Fallot. During a crying spell, the child becomes cyanotic and tachypneic. What is the first action?",
+            a: "Administer 100% oxygen via a mask.",
+            b: "Place the child in a knee-chest position.",
+            c: "Prepare for an emergency intubation.",
+            d: "Check the child's peripheral pulses.",
+            k: "B",
+            str: "STR: Giving oxygen (A) as the immediate first step.",
+            scfhs: "SCFHS: 'Tet Spell'. (B) is 'Safe Action' because it increases systemic vascular resistance to improve pulmonary blood flow. (A) is the second step."
+        },
+        {
+            id: 5,
+            v: "A postpartum woman (2 hours after delivery) has a boggy uterus and heavy vaginal bleeding. What is the first nursing action?",
+            a: "Notify the physician immediately for a possible hemorrhage.",
+            b: "Massage the fundus until firm.",
+            c: "Administer 10 units of Oxytocin intravenously.",
+            d: "Catheterize the patient to empty the bladder.",
+            k: "B",
+            str: "STR: Notifying the doctor (A) as the priority in an emergency.",
+            scfhs: "SCFHS: (B) is 'Safe Action' (Immediate fix for uterine atony). (D) is done only if the fundus is displaced to the side."
+        },
+        {
+            id: 6,
+            v: "A newborn is suspected of having Tracheoesophageal Fistula (TEF). Which clinical finding most strongly supports this diagnosis?",
+            a: "Persistent jaundice within the first 24 hours.",
+            b: "Excessive drooling, choking, and cyanosis during feeding.",
+            c: "Failure to pass meconium within 48 hours.",
+            d: "A sunken (scaphoid) abdomen.",
+            k: "B",
+            str: "STR: Checking for meconium (C) to rule out Hirschsprung's.",
+            scfhs: "SCFHS: (B) 'Safe Action' (The 3 Cs: Choking, Coughing, Cyanosis). (C) and (D) are not typical indicators of TEF."
+        },
+        {
+            id: 7,
+            v: "A nurse is assessing a pregnant woman with Preeclampsia. Which finding is the most concerning and suggests worsening condition?",
+            a: "1+ pitting edema in the ankles.",
+            b: "Complaints of epigastric pain and headache.",
+            c: "Blood pressure of 145/95 mmHg.",
+            d: "Trace protein in the urine.",
+            k: "B",
+            str: "STR: Reporting the blood pressure (C) as it is above normal.",
+            scfhs: "SCFHS: (B) is 'Safe Action'. Epigastric pain suggests liver involvement (HELLP syndrome) or imminent seizure (Eclampsia). (A) is common in pregnancy."
+        },
+        {
+            id: 8,
+            v: "A 10-month-old infant is admitted with severe dehydration due to gastroenteritis. Which assessment finding is most reliable for dehydration status?",
+            a: "The infant's crying without tears.",
+            b: "A decrease in body weight from the last check-up.",
+            c: "Sunken anterior fontanelle.",
+            d: "Dry mucous membranes.",
+            k: "B",
+            str: "STR: Checking the fontanelle (C) as it is a classic pediatric sign.",
+            scfhs: "SCFHS: (B) is 'Safe Action'. Weight loss is the gold standard for measuring the degree of dehydration in infants. (A/C/D) are subjective."
+        },
+        {
+            id: 9,
+            v: "A pregnant woman at 34 weeks gestation has a Premature Rupture of Membranes (PROM). What is the priority risk to monitor for?",
+            a: "Fetal macrosomia.",
+            b: "Maternal and fetal infection (Chorioamnionitis).",
+            c: "Gestational diabetes.",
+            d: "Painless vaginal bleeding.",
+            k: "B",
+            str: "STR: Monitoring for signs of early labor (Preterm).",
+            scfhs: "SCFHS: (B) 'Safe Action'. Once the sac is ruptured, the risk of ascending infection increases significantly. (D) is related to previa, not PROM."
+        },
+        {
+            id: 10,
+            v: "A child with Nephrotic Syndrome is receiving Prednisone. Which instruction should the nurse provide to the parents?",
+            a: "The child should receive the Live Measles vaccine next week.",
+            b: "Avoid contact with people who have active infections.",
+            c: "The child can stop the medication as soon as protein disappears from urine.",
+            d: "Encourage a high-sodium diet to prevent hypotension.",
+            k: "B",
+            str: "STR: Stopping the medication (C) once symptoms resolve.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Steroids are immunosuppressive. (A) is 'Unsafe' (Live vaccines are contraindicated). (C) is 'Unsafe' (requires tapering)."
+        },
+        {
+            id: 11,
+            v: "During a newborn assessment, the nurse notes the heart rate is 105 bpm, respiratory effort is slow/irregular, some flexion of extremities, grimace in response to suction, and the body is pink with blue extremities. What is the Apgar score?",
+            a: "5",
+            b: "6",
+            c: "7",
+            d: "8",
+            k: "B",
+            str: "STR: Calculating it as 7 or 8 based on the pink color.",
+            scfhs: "SCFHS: (B) 'Safe Action'. HR(2) + Resp(1) + Muscle(1) + Reflex(1) + Color(1) = 6. (A) is too low, (C/D) are overestimations."
+        },
+        {
+            id: 12,
+            v: "A 6-year-old child is diagnosed with Rheumatic Fever. Which historical finding is most likely present?",
+            a: "A recent history of a viral skin rash.",
+            b: "A sore throat 2 to 3 weeks ago.",
+            c: "A history of congenital heart defects.",
+            d: "Frequent episodes of urinary tract infections.",
+            k: "B",
+            str: "STR: Viral rash history (A).",
+            scfhs: "SCFHS: (B) 'Safe Action'. Rheumatic fever is an inflammatory reaction to Group A Strep pharyngitis. (C) is unrelated to the cause."
+        },
+        {
+            id: 13,
+            v: "A woman at 39 weeks gestation is in labor. The nurse notes a loop of the umbilical cord protruding from the vagina. What is the immediate action?",
+            a: "Push the cord back into the uterus gently.",
+            b: "Place the patient in a knee-chest or Trendelenburg position.",
+            c: "Cover the cord with a dry sterile dressing.",
+            d: "Perform a rapid vaginal delivery immediately.",
+            k: "B",
+            str: "STR: Pushing the cord back (A) to keep it warm and moist.",
+            scfhs: "SCFHS: Proversed Cord. (B) is 'Safe Action' to relieve pressure. (A) is 'Unsafe' (causes cord spasm/vasoconstriction). (C) should be moist, not dry."
+        },
+        {
+            id: 14,
+            v: "An 8-year-old child with Sickle Cell Anemia is in a Vaso-occlusive crisis. What is the priority nursing intervention?",
+            a: "Apply cold packs to the painful joints.",
+            b: "Administer IV fluids and oxygen.",
+            c: "Restrict fluid intake to avoid overload.",
+            d: "Administer Aspirin for pain relief.",
+            k: "B",
+            str: "STR: Using cold packs (A) to reduce swelling in the joints.",
+            scfhs: "SCFHS: (B) 'Safe Action' (Hydration/Oxygenation). (A) is 'Unsafe' (causes further sickling). (D) is avoided in children (Reye syndrome)."
+        },
+        {
+            id: 15,
+            v: "A nurse is teaching a mother about introducing solid foods to her 6-month-old infant. What is the best advice?",
+            a: "Start with multi-grain cereals for better nutrition.",
+            b: "Introduce iron-fortified rice cereal first.",
+            c: "Give fruit juice in a bottle to keep the infant hydrated.",
+            d: "Mix honey into the cereal to improve the taste.",
+            k: "B",
+            str: "STR: Starting with honey (D) for natural sweetness.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Rice cereal is hypoallergenic. (D) is 'Unsafe' (Botulism risk). (C) is 'Unsafe' (Dental caries/poor nutrition)."
+        },
+        {
+            id: 16,
+            v: "A pregnant patient with Gestational Diabetes is concerned about her baby's size. What is the primary risk for the neonate at birth?",
+            a: "Hyperglycemia.",
+            b: "Hypoglycemia.",
+            c: "Hypobilirubinemia.",
+            d: "Low birth weight.",
+            k: "B",
+            str: "STR: Expecting the baby to have high blood sugar (A) like the mother.",
+            scfhs: "SCFHS: (B) 'Safe Action'. The neonate produces high insulin in response to maternal glucose; once born, glucose drops but insulin remains high."
+        },
+        {
+            id: 17,
+            v: "Which assessment finding in a 3-month-old infant should be reported to the provider as a possible sign of Congenital Hip Dysplasia?",
+            a: "Symmetric gluteal folds.",
+            b: "Asymmetry of the thigh folds or limited hip abduction.",
+            c: "The ability to kick both legs equally.",
+            d: "Presence of a Babinski reflex.",
+            k: "B",
+            str: "STR: Reporting the Babinski reflex (D) as abnormal.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Asymmetry is a classic sign. (D) is normal in infants until age 1-2."
+        },
+        {
+            id: 18,
+            v: "A woman is taking Magnesium Sulfate for Preeclampsia. The nurse notes the respiratory rate is 10/min and deep tendon reflexes are absent. What is the priority?",
+            a: "Increase the infusion rate to prevent a seizure.",
+            b: "Stop the infusion and prepare Calcium Gluconate.",
+            c: "Document this as an expected therapeutic effect.",
+            d: "Administer a dose of Nifedipine.",
+            k: "B",
+            str: "STR: Documentation (C) because Magnesium is a relaxant.",
+            scfhs: "SCFHS: Magnesium Toxicity. (B) is 'Safe Action'. (A) is 'Unsafe' (Fatal risk). Respiratory rate < 12 is a critical sign."
+        },
+        {
+            id: 19,
+            v: "A 12-year-old child is being treated for Scoliosis with a Boston brace. Which statement indicates the child understands the treatment?",
+            a: "I only need to wear this brace while I am sleeping.",
+            b: "I will wear the brace for 23 hours a day, over a t-shirt.",
+            c: "I can stop wearing it once my back stops hurting.",
+            d: "I should tighten the brace until it is hard to breathe.",
+            k: "B",
+            str: "STR: Wearing it only at night (A) for comfort.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Braces must be worn almost constantly. (D) is 'Unsafe' (respiratory/skin compromise)."
+        },
+        {
+            id: 20,
+            v: "A postpartum mother is Rh-negative and her newborn is Rh-positive. When should the nurse administer Rho(D) Immune Globulin (RhoGAM)?",
+            a: "Immediately before the delivery.",
+            b: "Within 72 hours after delivery.",
+            c: "One month after discharge.",
+            d: "Only if the mother develops symptoms of a reaction.",
+            k: "B",
+            str: "STR: Administering it before delivery (A) to protect the current baby.",
+            scfhs: "SCFHS: (B) 'Safe Action'. RhoGAM prevents sensitization for *future* pregnancies. (C) is too late."
+        },
+        {
+            id: 21,
+            v: "A child is admitted with Celiac Disease. Which snack choice by the parents indicates an understanding of the diet?",
+            a: "Whole wheat crackers.",
+            b: "Corn tortillas with cheese.",
+            c: "Oatmeal cookies.",
+            d: "Rye bread toast.",
+            k: "B",
+            str: "STR: Whole wheat crackers (A) because they are 'whole grain'.",
+            scfhs: "SCFHS: (B) 'Safe Action' (Gluten-free). (A, C, D) all contain gluten (Wheat, Oats, Rye)."
+        },
+        {
+            id: 22,
+            v: "A nurse is teaching about Sudden Infant Death Syndrome (SIDS) prevention. Which position is recommended for sleep?",
+            a: "Side-lying with a pillow support.",
+            b: "Supine (on the back).",
+            c: "Prone (on the stomach).",
+            d: "Semi-Fowler’s in a car seat.",
+            k: "B",
+            str: "STR: Side-lying (A) to prevent aspiration.",
+            scfhs: "SCFHS: (B) 'Safe Action' (Back to Sleep campaign). (C) is 'Unsafe' (highest risk for SIDS)."
+        },
+        {
+            id: 23,
+            v: "Which finding in a woman 24 hours after a Cesarean section requires immediate intervention?",
+            a: "Pain at the incision site (4/10).",
+            b: "Unilateral calf swelling and tenderness.",
+            c: "Serosanguinous drainage on the dressing.",
+            d: "Colostrum expressed from the breasts.",
+            k: "B",
+            str: "STR: Reporting the incision pain (A).",
+            scfhs: "SCFHS: (B) 'Safe Action'. Suggests DVT (risk of PE). (A) and (C) are expected postoperative findings."
+        },
+        {
+            id: 24,
+            v: "A child is undergoing Chelation Therapy for Lead Poisoning. What is the most important nursing assessment during this therapy?",
+            a: "Liver enzymes.",
+            b: "Renal function (BUN/Creatinine and output).",
+            c: "Heart rate and rhythm.",
+            d: "Visual acuity.",
+            k: "B",
+            str: "STR: Monitoring the liver (A).",
+            scfhs: "SCFHS: (B) 'Safe Action'. Chelation agents are nephrotoxic as they pull lead out through the kidneys."
+        },
+        {
+            id: 25,
+            v: "A mother calls the clinic because her 3-year-old swallowed a button battery 30 minutes ago. What is the nurse's instruction?",
+            a: "Give the child a glass of milk and wait for it to pass.",
+            b: "Go to the Emergency Room immediately.",
+            c: "Induce vomiting using syrup of Ipecac.",
+            d: "Administer a laxative to speed up transit.",
+            k: "B",
+            str: "STR: Inducing vomiting (C) to get the battery out.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Batteries cause rapid tissue necrosis. (C) is 'Unsafe' (aspiration/corrosive risk)."
+        },
+      {
+            id: 26,
+            v: "A woman at 32 weeks gestation is diagnosed with Placenta Previa. She is stable and being managed at home. Which statement by the patient indicates a need for further teaching?",
+            a: "I will call the doctor immediately if I see any bleeding.",
+            b: "I can continue to have sexual intercourse with my partner.",
+            c: "I will stay on bed rest and limit my activity.",
+            d: "I have a plan for transportation to the hospital in an emergency.",
+            k: "B",
+            str: "STR: Limiting activity (C) as it might be too restrictive for home care.",
+            scfhs: "SCFHS: (B) is 'Unsafe' and requires correction. Pelvic rest (no intercourse, no douching) is mandatory for Placenta Previa to prevent hemorrhage."
+        },
+        {
+            id: 27,
+            v: "A 5-year-old child is admitted with acute post-streptococcal glomerulonephritis (APSGN). Which assessment finding is most characteristic of this condition?",
+            a: "Massive proteinuria and generalized edema.",
+            b: "Periorbital edema and smoky, 'cola-colored' urine.",
+            c: "Hypotension and clear, pale urine.",
+            d: "Increased appetite and weight loss.",
+            k: "B",
+            str: "STR: Generalized edema (A) as the primary sign.",
+            scfhs: "SCFHS: (B) is 'Safe Action' (Clinical Recognition). Hematuria and periorbital edema are hallmarks of APSGN. (A) is more characteristic of Nephrotic Syndrome."
+        },
+        {
+            id: 28,
+            v: "A nurse is assessing a neonate born at 36 weeks. The nurse notes 'nasal flaring' and 'grunting' during expiration. What is the priority nursing action?",
+            a: "Document the findings as normal for a premature infant.",
+            b: "Place the infant in a side-lying position and notify the provider.",
+            c: "Suction the infant's mouth and nose immediately.",
+            d: "Administer a bottle of glucose water to improve energy.",
+            k: "B",
+            str: "STR: Suctioning (C) to clear any remaining amniotic fluid.",
+            scfhs: "SCFHS: Respiratory Distress Syndrome (RDS). (B) is 'Safe Action'. Flaring and grunting are signs of distress. (A) is 'Unsafe' (neglect)."
+        },
+        {
+            id: 29,
+            v: "A patient in the second stage of labor is pushing. The nurse notes that the fetal head retracts against the perineum after emerging (Turtle Sign). What is the priority?",
+            a: "Apply fundal pressure to help the baby deliver.",
+            b: "Prepare for McRoberts maneuver and suprapubic pressure.",
+            c: "Tell the mother to push harder during the next contraction.",
+            d: "Perform a vacuum extraction immediately.",
+            k: "B",
+            str: "STR: Applying fundal pressure (A) to push the baby out from above.",
+            scfhs: "SCFHS: Shoulder Dystocia. (B) is 'Safe Action'. (A) is 'STRICTLY UNSAFE' as it further impacts the shoulder and risks uterine rupture."
+        },
+        {
+            id: 30,
+            v: "A 2-year-old child is diagnosed with Otitis Media. Which factor in the child's history most likely contributed to this condition?",
+            a: "The child's Eustachian tubes are long and tilted.",
+            b: "The child was breastfed for 12 months.",
+            c: "The child is exposed to secondary cigarette smoke at home.",
+            d: "The child recently received the Hib vaccine.",
+            k: "C",
+            str: "STR: The anatomy of the tubes being long (A).",
+            scfhs: "SCFHS: (C) 'Safe Action'. Smoke exposure and horizontal Eustachian tubes (which are short, not long) are major risk factors. (B) is a protective factor."
+        },
+        {
+            id: 31,
+            v: "A pregnant woman with Preeclampsia is being treated with Magnesium Sulfate. Which assessment indicates the medication is reaching a toxic level?",
+            a: "Blood pressure of 120/80 mmHg.",
+            b: "Presence of 2+ patellar reflexes.",
+            c: "Urinary output of 20 mL per hour.",
+            d: "A feeling of warmth and flushing.",
+            k: "C",
+            str: "STR: Flushing (D) as it is a common side effect of the drug.",
+            scfhs: "SCFHS: (C) is 'Safe Action'. Magnesium is excreted by kidneys; low output leads to toxicity. Toxicity is marked by absent reflexes, not 2+ (normal)."
+        },
+        {
+            id: 32,
+            v: "A 7-year-old child is scheduled for an Appendectomy. The child's sudden relief from abdominal pain should be interpreted by the nurse as:",
+            a: "A sign that the appendicitis is resolving.",
+            b: "A sign of possible appendix rupture and peritonitis.",
+            c: "The effect of the pain medication starting to work.",
+            d: "A normal finding before surgery.",
+            k: "B",
+            str: "STR: Resolving appendicitis (A) because the pain stopped.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Sudden relief often means the appendix has perforated, which is a surgical emergency. (A) is 'Unsafe' interpretation."
+        },
+        {
+            id: 33,
+            v: "A postpartum woman who is breastfeeding is diagnosed with Mastitis. What is the most important instruction for the nurse to provide?",
+            a: "Stop breastfeeding from the affected breast until it heals.",
+            b: "Continue to breastfeed or pump frequently from both breasts.",
+            c: "Apply cold compresses to stop milk production.",
+            d: "Limit fluid intake to reduce swelling in the breast.",
+            k: "B",
+            str: "STR: Stopping breastfeeding (A) to prevent the baby from getting the infection.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Emptying the breast is the key to treating mastitis. The infection is in the tissue, not the milk; (A) is 'Unsafe' (risks abscess)."
+        },
+        {
+            id: 34,
+            v: "An infant is admitted with Intussusception. Which clinical finding is most expected?",
+            a: "Projectile vomiting of non-bilious fluid.",
+            b: "Currant-jelly-like stools and sausage-shaped mass.",
+            c: "Ribbon-like, foul-smelling stools.",
+            d: "A sunken scaphoid abdomen.",
+            k: "B",
+            str: "STR: Projectile vomiting (A) as it is a hallmark of bowel issues.",
+            scfhs: "SCFHS: (B) 'Safe Action'. (A) is for Pyloric Stenosis. (C) is for Hirschsprung's Disease."
+        },
+        {
+            id: 35,
+            v: "The nurse is providing discharge instructions to a mother of a child with Hemophilia A. Which statement indicates a need for further teaching?",
+            a: "I will use a soft-bristled toothbrush for my child.",
+            b: "I will give my child Ibuprofen if he has joint pain.",
+            c: "I will encourage non-contact sports like swimming.",
+            d: "I will keep the factor replacement therapy in the refrigerator.",
+            k: "B",
+            str: "STR: Encouraging swimming (C) because it might be too strenuous.",
+            scfhs: "SCFHS: (B) is 'Unsafe'. NSAIDs like Ibuprofen interfere with platelet function and are contraindicated in Hemophilia. (C) is the preferred sport."
+        },
+        {
+            id: 36,
+            v: "A woman at 38 weeks gestation is in labor. The nurse notes a late deceleration on the fetal monitor. What is the first priority?",
+            a: "Increase the rate of the Oxytocin infusion.",
+            b: "Reposition the mother to the left side and apply oxygen.",
+            c: "Perform a vaginal exam to check for cord prolapse.",
+            d: "Document the finding and continue to monitor.",
+            k: "B",
+            str: "STR: Checking for cord prolapse (C) as it causes decelerations.",
+            scfhs: "SCFHS: Uteroplacental insufficiency. (B) is 'Safe Action' to improve oxygenation. (A) is 'Unsafe' (worsens the deceleration)."
+        },
+        {
+            id: 37,
+            v: "A 10-year-old child with Type 1 Diabetes is found trembling and confused on the playground. What should the nurse do first?",
+            a: "Administer the scheduled dose of NPH insulin.",
+            b: "Give the child 15 grams of fast-acting carbohydrates (e.g., juice).",
+            c: "Call the parents to ask what the child ate for lunch.",
+            d: "Check the urine for ketones.",
+            k: "B",
+            str: "STR: Checking the urine (D) for Diabetic Ketoacidosis.",
+            scfhs: "SCFHS: Hypoglycemia. (B) is 'Safe Action'. 'Rule of 15'. (A) is 'Unsafe' (could be fatal if sugar is already low)."
+        },
+        {
+            id: 38,
+            v: "A nurse is caring for a patient with Hyperemesis Gravidarum. Which lab result is most expected in this condition?",
+            a: "Metabolic acidosis and hyperkalemia.",
+            b: "Metabolic alkalosis and hypokalemia.",
+            c: "Respiratory acidosis and hyponatremia.",
+            d: "Normal electrolytes with high glucose.",
+            k: "B",
+            str: "STR: Acidosis (A) due to starving the body of food.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Excessive vomiting leads to loss of stomach acid (alkalosis) and potassium (hypokalemia)."
+        },
+        {
+            id: 39,
+            v: "A 1-year-old child is diagnosed with Croup (Laryngotracheobronchitis). What is the priority nursing diagnosis?",
+            a: "Deficient Fluid Volume related to fever.",
+            b: "Ineffective Airway Clearance related to edema and secretions.",
+            c: "Impaired Skin Integrity related to diaper rash.",
+            d: "Anxiety related to hospitalization.",
+            k: "B",
+            str: "STR: Deficient Fluid Volume (A) because of the risk of dehydration.",
+            scfhs: "SCFHS: (B) 'Safe Action'. ABCs always come first. Airway edema in Croup is the primary life threat."
+        },
+        {
+            id: 40,
+            v: "A nurse is assessing a woman 4 hours postpartum. The nurse finds the fundus is firm, but displaced to the right of the midline. What is the priority?",
+            a: "Perform fundal massage for 15 minutes.",
+            b: "Have the patient void or catheterize if unable to void.",
+            c: "Notify the physician of a potential hemorrhage.",
+            d: "Apply an ice pack to the perineum.",
+            k: "B",
+            str: "STR: Massaging the fundus (A) to make sure it stays firm.",
+            scfhs: "SCFHS: (B) 'Safe Action'. A full bladder displaces the uterus, which can lead to atony. Voiding corrects the position."
+        },
+        {
+            id: 41,
+            v: "A child with Spina Bifida (Myelomeningocele) is being prepared for surgery. What is the priority nursing action to protect the sac?",
+            a: "Place the child in a supine position with a dry dressing.",
+            b: "Place the child in a prone position with a moist, sterile, non-adherent dressing.",
+            c: "Apply a tight diaper to prevent contamination from stool.",
+            d: "Keep the sac exposed to the air to allow it to dry.",
+            k: "B",
+            str: "STR: Using a dry dressing (A) to prevent infection.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Prone position prevents pressure on the sac; moist dressing prevents drying and rupture. (C) is 'Unsafe' (pressure)."
+        },
+        {
+            id: 42,
+            v: "A pregnant woman is admitted at 39 weeks gestation with suspected Abruptio Placentae. Which assessment finding is most characteristic?",
+            a: "Painless, bright red vaginal bleeding.",
+            b: "Board-like, rigid abdomen with severe uterine tenderness.",
+            c: "Slow, rhythmic uterine contractions.",
+            d: "A soft, non-tender uterus.",
+            k: "B",
+            str: "STR: Painless bleeding (A) as the main sign of placental issues.",
+            scfhs: "SCFHS: (B) 'Safe Action'. (A) is for Placenta Previa. Abruptio is characterized by intense pain and rigidity."
+        },
+        {
+            id: 43,
+            v: "A nurse is teaching the parents of a child with Iron Deficiency Anemia about giving iron supplements. Which statement is correct?",
+            a: "Give the iron with a glass of milk to prevent stomach upset.",
+            b: "Give the iron with orange juice between meals for better absorption.",
+            c: "Stop the medication if the child's stools turn dark green or black.",
+            d: "Mix the liquid iron into the child's formula bottle.",
+            k: "B",
+            str: "STR: Giving it with milk (A) to protect the stomach.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Vitamin C aids iron absorption. Milk (A) inhibits it. (C) is a normal, harmless side effect."
+        },
+        {
+            id: 44,
+            v: "A patient is in the active phase of labor. The nurse notes the fetal heart rate is 175 bpm for the last 20 minutes. What is the priority?",
+            a: "Document this as a normal finding in labor.",
+            b: "Check maternal temperature for signs of infection/fever.",
+            c: "Immediately prepare for a Cesarean section.",
+            d: "Encourage the mother to hold her breath while pushing.",
+            k: "B",
+            str: "STR: Preparing for C-section (C) due to fetal tachycardia.",
+            scfhs: "SCFHS: Fetal Tachycardia (>160). (B) is 'Safe Action'. Maternal fever is the most common cause. (D) is 'Unsafe' (decreases fetal oxygen)."
+        },
+        {
+            id: 45,
+            v: "A 12-month-old child is being evaluated for Hirschsprung's Disease. Which history is most significant?",
+            a: "The child had projectile vomiting as a newborn.",
+            b: "Failure to pass meconium in the first 24-48 hours of life.",
+            c: "The child is in the 95th percentile for weight.",
+            d: "The child has frequent watery diarrhea.",
+            k: "B",
+            str: "STR: Projectile vomiting (A) since birth.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Delayed meconium is the classic newborn sign. (A) is for Pyloric Stenosis."
+        },
+        {
+            id: 46,
+            v: "A woman who is 2 days postpartum is crying and says she feels overwhelmed and sad. What is the most appropriate nursing response?",
+            a: "Explain that this is likely 'Baby Blues' and is a normal reaction.",
+            b: "Notify the psychiatrist for an emergency evaluation of postpartum depression.",
+            c: "Tell the mother she should be happy she has a healthy baby.",
+            d: "Tell the mother to stop breastfeeding because it is causing her stress.",
+            k: "A",
+            str: "STR: Immediately calling a psychiatrist (B).",
+            scfhs: "SCFHS: (A) 'Safe Action'. Baby Blues occur in ~80% of mothers and resolve in 10-14 days. (C) is non-therapeutic. (D) is 'Unsafe' advice."
+        },
+        {
+            id: 47,
+            v: "A 3-year-old child has swallowed a coin. The child is coughing and able to speak. What should the nurse do?",
+            a: "Perform the Heimlich maneuver (Abdominal thrusts) immediately.",
+            b: "Monitor the child closely and allow them to cough.",
+            c: "Force the child to drink water to push the coin down.",
+            d: "Attempt to reach into the throat to pull the coin out.",
+            k: "B",
+            str: "STR: Doing the Heimlich maneuver (A) right away.",
+            scfhs: "SCFHS: (B) 'Safe Action'. If the child can cough and speak, the airway is not totally obstructed. (A/D) can cause total obstruction or injury."
+        },
+        {
+            id: 48,
+            v: "A nurse is teaching a pregnant woman about the 'Kick Count' method. Which instruction is correct?",
+            a: "If you don't feel 10 kicks in 2 hours, call your provider.",
+            b: "You only need to count kicks if you feel the baby isn't growing.",
+            c: "A normal count is at least 1 kick per hour.",
+            d: "Perform the count only while you are active and walking.",
+            k: "A",
+            str: "STR: Counting at least 1 kick per hour (C).",
+            scfhs: "SCFHS: (A) 'Safe Action' (Standard Fetal Well-being). (D) is incorrect; counts should be done while resting/lying down."
+        },
+        {
+            id: 49,
+            v: "A child with Pyloric Stenosis is admitted. What is the nurse's priority assessment?",
+            a: "Blood pressure and heart rate.",
+            b: "Signs of dehydration and metabolic alkalosis.",
+            c: "The child's birth weight history.",
+            d: "The presence of a cough.",
+            k: "B",
+            str: "STR: Monitoring the weight history (C).",
+            scfhs: "SCFHS: (B) 'Safe Action'. Projectile vomiting leads to severe loss of gastric acid and fluids. (A) is secondary to (B)."
+        },
+        {
+            id: 50,
+            v: "A nurse is assessing a newborn with a suspected Diaphragmatic Hernia. What is the hallmark finding?",
+            a: "A distended, firm abdomen.",
+            b: "A scaphoid (sunken) abdomen and respiratory distress.",
+            c: "High-pitched, loud crying.",
+            d: "Excessive meconium passage.",
+            k: "B",
+            str: "STR: Distended abdomen (A).",
+            scfhs: "SCFHS: (B) 'Safe Action'. In diaphragmatic hernia, abdominal organs are in the chest, leaving the abdomen empty/sunken (scaphoid)."
+        },
+        {
+            id: 51,
+            v: "A 3-year-old child is brought to the ER after ingesting an unknown amount of household bleach. The child is crying and has white patches on the lips. What is the priority nursing action?",
+            a: "Administer syrup of Ipecac to induce vomiting immediately.",
+            b: "Assess the airway and respiratory status.",
+            c: "Give the child a large amount of activated charcoal.",
+            d: "Perform gastric lavage to remove the bleach.",
+            k: "B",
+            str: "STR: Inducing vomiting (A) to remove the toxin from the stomach.",
+            scfhs: "SCFHS: (B) is 'Safe Action'. Bleach is a corrosive. (A) and (D) are 'STRICTLY UNSAFE' because the corrosive agent will burn the esophagus again on the way up. (C) is not effective for bleach."
+        },
+        {
+            id: 52,
+            v: "A woman at 36 weeks gestation with Preeclampsia begins to have a tonic-clonic seizure. What is the nurse's first priority during the seizure?",
+            a: "Insert an oral airway to prevent tongue biting.",
+            b: "Turn the patient onto her side and protect the head.",
+            c: "Administer a bolus of Magnesium Sulfate intravenously.",
+            d: "Prepare for an emergency Cesarean section.",
+            k: "B",
+            str: "STR: Inserting an airway (A) to keep the tongue from blocking the throat.",
+            scfhs: "SCFHS: (B) is 'Safe Action' (Aspiration/Injury prevention). (A) is 'Unsafe' (risk of dental trauma/gagging). (C) is done *after* the seizure ends to prevent recurrence."
+        },
+        {
+            id: 53,
+            v: "A nurse is caring for an infant with Hirschsprung's Disease who is awaiting surgery. The nurse notes a sudden onset of fever, explosive bloody diarrhea, and increasing abdominal distension. What does this suggest?",
+            a: "A normal progression of the disease.",
+            b: "The development of Enterocolitis.",
+            c: "The infant is ready for oral feedings.",
+            d: "A viral stomach flu.",
+            k: "B",
+            str: "STR: Normal progression (A) due to the lack of nerve cells in the colon.",
+            scfhs: "SCFHS: (B) is 'Safe Action'. Enterocolitis is a life-threatening complication of Hirschsprung's. (A) is 'Unsafe' (failure to recognize an emergency)."
+        },
+        {
+            id: 54,
+            v: "Which assessment finding in a newborn 12 hours after birth requires immediate follow-up by the nurse?",
+            a: "Jaundice appearing on the face and sclera.",
+            b: "Acrocyanosis (blue hands and feet).",
+            c: "Erythema toxicum (newborn rash).",
+            d: "Milia on the nose and chin.",
+            k: "A",
+            str: "STR: Reporting the acrocyanosis (B) as a sign of poor oxygenation.",
+            scfhs: "SCFHS: (A) is 'Safe Action'. Jaundice in the first 24 hours is *pathological* (e.g., ABO/Rh incompatibility). (B, C, D) are normal/benign findings in a neonate."
+        },
+        {
+            id: 55,
+            v: "A 6-year-old child with a leg cast for a femur fracture reports a 'pins and needles' sensation in the toes. The nurse notes the toes are pale and the pedal pulse is weak. What is the priority?",
+            a: "Elevate the leg above the level of the heart.",
+            b: "Notify the healthcare provider immediately.",
+            c: "Administer the prescribed PRN pain medication.",
+            d: "Apply a cold pack to the cast to reduce swelling.",
+            k: "B",
+            str: "STR: Elevating the leg (A) to reduce swelling.",
+            scfhs: "SCFHS: Compartment Syndrome. (B) is 'Safe Action'. (A) is 'Unsafe' because elevation further reduces arterial perfusion in this condition."
+        },
+        {
+            id: 56,
+            v: "A nurse is providing discharge teaching to a mother whose infant just received the Palivizumab (Synagis) injection. What is the purpose of this medication?",
+            a: "To provide active immunity against Measles.",
+            b: "To prevent severe Respiratory Syncytial Virus (RSV) infection.",
+            c: "To treat an active bacterial pneumonia.",
+            d: "To act as a long-term bronchodilator.",
+            k: "B",
+            str: "STR: Treating active pneumonia (C) in high-risk infants.",
+            scfhs: "SCFHS: (B) is 'Safe Action'. Palivizumab is a monoclonal antibody given to high-risk infants to prevent RSV. It is not a vaccine or a treatment (C)."
+        },
+        {
+            id: 57,
+            v: "A woman in active labor has an internal fetal monitor. The nurse notes 'variable decelerations' on the strip. What is the most likely cause?",
+            a: "Uteroplacental insufficiency.",
+            b: "Umbilical cord compression.",
+            c: "Fetal head compression.",
+            d: "Maternal hypotension.",
+            k: "B",
+            str: "STR: Fetal head compression (C) as the baby moves down.",
+            scfhs: "SCFHS: (B) is 'Safe Action' (VEAL CHOP mnemonic). (A) causes late decelerations. (C) causes early decelerations."
+        },
+        {
+            id: 58,
+            v: "A 2-year-old child is diagnosed with Iron Deficiency Anemia. The nurse is assessing the child's diet. Which food should be limited to improve iron absorption from other sources?",
+            a: "Orange juice.",
+            b: "Whole cow's milk.",
+            c: "Lean red meat.",
+            d: "Leafy green vegetables.",
+            k: "B",
+            str: "STR: Limiting orange juice (A) due to high sugar content.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Excessive milk intake ('milk baby') replaces iron-rich foods and inhibits iron absorption. (A) actually helps absorption."
+        },
+        {
+            id: 59,
+            v: "A pregnant woman at 30 weeks gestation is admitted with Preterm Labor. The nurse prepares to administer Betamethasone. What is the goal of this medication?",
+            a: "To stop uterine contractions.",
+            b: "To promote fetal lung maturity.",
+            c: "To prevent maternal group B strep infection.",
+            d: "To increase maternal blood pressure.",
+            k: "B",
+            str: "STR: Stopping the contractions (A) to prevent birth.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Corticosteroids stimulate surfactant production in the fetus. (A) is the job of tocolytics like Nifedipine or Terbutaline."
+        },
+        {
+            id: 60,
+            v: "A child is admitted with a suspected Wilms' Tumor (Nephroblastoma). Which nursing action is essential during the physical assessment?",
+            a: "Deep palpation of the abdomen to determine tumor size.",
+            b: "Avoid any palpation of the abdomen.",
+            c: "Perform a vigorous percussion of the kidneys.",
+            d: "Collect a 24-hour urine sample for catecholamines.",
+            k: "B",
+            str: "STR: Deep palpation (A) to assess the tumor boundaries.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Palpation (A) can rupture the capsule and cause the cancer to spread (seeding). (D) is for Pheochromocytoma."
+        },
+        {
+            id: 61,
+            v: "A nurse is teaching a new mother about umbilical cord care. Which statement by the mother indicates she understands the instructions?",
+            a: "I will apply a thick layer of antibiotic ointment twice a day.",
+            b: "I will keep the diaper folded below the cord stump.",
+            c: "I will give my baby a tub bath every day to keep the cord clean.",
+            d: "I will pull the cord off if it is still hanging by a thread after 5 days.",
+            k: "B",
+            str: "STR: Giving tub baths (C) to ensure cleanliness.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Keeps the cord dry and exposed to air. (C) is 'Unsafe' (delayed drying/infection risk). (D) is 'Unsafe' (trauma/bleeding risk)."
+        },
+        {
+            id: 62,
+            v: "A child with Cleft Palate is being fed postoperatively. Which feeding technique should the nurse use?",
+            a: "Use a regular straw to encourage sucking.",
+            b: "Use a specialized feeder or a spoon, avoiding suction.",
+            c: "Place the child in a supine position during feeding.",
+            d: "Allow the child to feed themselves with a hard plastic fork.",
+            k: "B",
+            str: "STR: Using a regular straw (A) to strengthen mouth muscles.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Suction (A) can damage the fresh suture line. (C) is 'Unsafe' (aspiration risk)."
+        },
+        {
+            id: 63,
+            v: "A postpartum woman has a history of Thrombophlebitis. Which nursing intervention is most important for preventing a Pulmonary Embolism?",
+            a: "Maintain strict bed rest for 1 week.",
+            b: "Encourage early and frequent ambulation.",
+            c: "Massage the affected leg twice daily.",
+            d: "Apply ice packs to the calves.",
+            k: "B",
+            str: "STR: Massaging the leg (C) to improve blood flow.",
+            scfhs: "SCFHS: (B) 'Safe Action'. (C) is 'STRICTLY UNSAFE' (can dislodge a clot). (A) is outdated and actually increases the risk of clot formation."
+        },
+        {
+            id: 64,
+            v: "An 18-month-old child is brought to the clinic for a well-child visit. Which developmental milestone is expected for this age?",
+            a: "The child can use a 10-word sentence.",
+            b: "The child can walk alone and climb stairs with help.",
+            c: "The child can tie their own shoelaces.",
+            d: "The child can ride a tricycle.",
+            k: "B",
+            str: "STR: Riding a tricycle (D) as they are mobile.",
+            scfhs: "SCFHS: (B) 'Safe Action'. (D) is a 3-year-old milestone. (C) is for 5-6 years old. (A) is far beyond an 18-month-old's ability."
+        },
+        {
+            id: 65,
+            v: "A woman with Gestational Hypertension is prescribed Methyldopa. What is a common side effect the nurse should teach the patient?",
+            a: "Extreme insomnia.",
+            b: "Drowsiness or sedation.",
+            c: "Excessive vaginal discharge.",
+            d: "Increased heart rate.",
+            k: "B",
+            str: "STR: Insomnia (A) due to hormonal changes.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Methyldopa is a central-acting alpha-agonist often causing sedation. (D) is incorrect (it usually lowers HR/BP)."
+        },
+        {
+            id: 66,
+            v: "A child is admitted with Kawasaki Disease. What is the most serious complication the nurse must monitor for?",
+            a: "Peeling skin on the fingers and toes.",
+            b: "Coronary artery aneurysms.",
+            c: "High fever that doesn't respond to Tylenol.",
+            d: "A 'strawberry' tongue.",
+            k: "B",
+            str: "STR: Peeling skin (A) as it is very painful.",
+            scfhs: "SCFHS: (B) 'Safe Action'. While A, C, and D are classic symptoms, (B) is the life-threatening complication that requires Echo monitoring."
+        },
+        {
+            id: 67,
+            v: "Which instruction is most important for a patient who has just been diagnosed with a Hydatidiform Mole (Molar Pregnancy)?",
+            a: "You can try to get pregnant again in 2 months.",
+            b: "You must avoid pregnancy for 1 year and have regular HCG monitoring.",
+            c: "You will need a course of broad-spectrum antibiotics for 6 months.",
+            d: "This condition increases your risk of developing Type 1 Diabetes.",
+            k: "B",
+            str: "STR: Trying to get pregnant again in 2 months (A).",
+            scfhs: "SCFHS: (B) 'Safe Action'. Molar pregnancy has a risk of Choriocarcinoma. HCG levels must be monitored; pregnancy (A) would mask rising HCG from cancer."
+        },
+        {
+            id: 68,
+            v: "A nurse is caring for a 4-year-old child post-Tonsillectomy. The child is sleeping but is swallowing frequently. What should the nurse suspect?",
+            a: "The child is thirsty.",
+            b: "The child is bleeding from the surgical site.",
+            c: "This is a normal reaction to the anesthesia.",
+            d: "The child has a sore throat.",
+            k: "B",
+            str: "STR: Normal post-anesthesia reaction (C).",
+            scfhs: "SCFHS: (B) 'Safe Action'. Frequent swallowing is a classic early sign of post-tonsillectomy hemorrhage. (A, C, D) are 'Delays' in recognizing an emergency."
+        },
+        {
+            id: 69,
+            v: "A woman at 10 weeks gestation is concerned about the 'mask of pregnancy' (chloasma) on her face. What is the best advice?",
+            a: "Apply a bleaching cream to the spots daily.",
+            b: "Avoid sun exposure and use sunscreen.",
+            c: "This is a sign of a vitamin deficiency.",
+            d: "It will never go away after the baby is born.",
+            k: "B",
+            str: "STR: Using bleaching cream (A) to lighten the skin.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Chloasma is hormonal and worsened by UV light. (A) is 'Unsafe' (chemical exposure during pregnancy)."
+        },
+        {
+            id: 70,
+            v: "A 2-year-old child is diagnosed with Scoliosis. Which treatment is most likely for a mild curve in a child this age?",
+            a: "Immediate spinal fusion surgery.",
+            b: "Frequent clinical observation and monitoring.",
+            c: "Wearing a halo traction for 6 months.",
+            d: "Enforced bed rest.",
+            k: "B",
+            str: "STR: Immediate surgery (A) to prevent it from getting worse.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Mild curves (<20 degrees) are monitored. Surgery (A) is only for severe cases (>40-45 degrees)."
+        },
+        {
+            id: 71,
+            v: "A postpartum woman who is Rh-negative is being discharged. She received RhoGAM 24 hours ago. What is the nurse's goal for this therapy?",
+            a: "To prevent the mother from developing antibodies that could affect future pregnancies.",
+            b: "To treat the baby's jaundice.",
+            c: "To prevent the mother from getting an infection.",
+            d: "To increase the mother's red blood cell count.",
+            k: "A",
+            str: "STR: Treating the baby's jaundice (B).",
+            scfhs: "SCFHS: (A) 'Safe Action'. RhoGAM prevents isoimmunization in Rh-negative mothers. (B, C, D) are incorrect uses of the drug."
+        },
+        {
+            id: 72,
+            v: "A 4-year-old child has a fever, headache, and a 'slapped-cheek' appearance on the face. What is the diagnosis?",
+            a: "Scarlet Fever.",
+            b: "Fifth Disease (Erythema Infectiosum).",
+            c: "Chickenpox (Varicella).",
+            d: "Measles (Rubeola).",
+            k: "B",
+            str: "STR: Scarlet Fever (A) because of the red face.",
+            scfhs: "SCFHS: (B) 'Safe Action'. 'Slapped-cheek' is the hallmark of Fifth Disease. (A) has a 'strawberry tongue' and sandpaper rash."
+        },
+        {
+            id: 73,
+            v: "A nurse is teaching a patient about breast self-examination (BSE) during the postpartum period. When is the best time to perform BSE?",
+            a: "On the first day of every month.",
+            b: "5 to 7 days after the menstrual period begins.",
+            c: "Whenever the patient feels a lump.",
+            d: "Every morning before getting out of bed.",
+            k: "B",
+            str: "STR: The first day of every month (A).",
+            scfhs: "SCFHS: (B) 'Safe Action'. Hormonal influence on breast tissue is lowest 5-7 days after the period starts, making it more accurate. (A) is only for post-menopausal women."
+        },
+        {
+            id: 74,
+            v: "A child is admitted with Acute Epiglottitis. Which position is most comfortable for this child?",
+            a: "Side-lying position.",
+            b: "Sitting upright leaning forward (Tripod position).",
+            c: "Supine with a small pillow.",
+            d: "Prone position.",
+            k: "B",
+            str: "STR: Side-lying (A) to prevent saliva aspiration.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Tripod position helps maintain the airway. (C) is 'Unsafe' (can cause immediate airway obstruction)."
+        },
+        {
+            id: 75,
+            v: "A woman at 34 weeks gestation has a non-stress test (NST). The nurse notes two fetal heart rate accelerations of 15 bpm lasting 15 seconds over 20 minutes. How is this interpreted?",
+            a: "Non-reactive (Abnormal).",
+            b: "Reactive (Normal).",
+            c: "Inconclusive.",
+            d: "Unsafe for the fetus.",
+            k: "B",
+            str: "STR: Non-reactive (A) because the baby's heart rate should be steady.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Reactive NST means the fetus is well-oxygenated. (A) would be the interpretation if accelerations were absent."
+        },
+        {
+            id: 76,
+            v: "A 4-year-old child is admitted to the pediatric unit with a diagnosis of Nephrotic Syndrome. Which intervention is the priority for the nurse to implement?",
+            a: "Administering a high-protein, high-sodium diet.",
+            b: "Monitoring daily weight and abdominal girth.",
+            c: "Encouraging frequent physical activity to reduce edema.",
+            d: "Restricting fluids to 200 mL per day.",
+            k: "B",
+            str: "STR: Giving a high-sodium diet (A) to replace lost electrolytes.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Daily weight is the most sensitive indicator of fluid balance in Nephrotic Syndrome. (A) is 'Unsafe' (high sodium worsens edema)."
+        },
+        {
+            id: 77,
+            v: "A woman at 35 weeks gestation is undergoing a contraction stress test (CST). The nurse notes 'late decelerations' with more than 50% of the contractions. How is this interpreted?",
+            a: "Negative CST (Normal).",
+            b: "Positive CST (Abnormal).",
+            c: "Equivocal-hyperstimulatory.",
+            d: "Reactive (Normal).",
+            k: "B",
+            str: "STR: Negative CST (A) as it means no danger.",
+            scfhs: "SCFHS: (B) 'Safe Action'. A positive CST indicates uteroplacental insufficiency and is a concerning finding. (A) is when no late decelerations are present."
+        },
+        {
+            id: 78,
+            v: "A nurse is caring for a 1-year-old child following a Cleft Lip repair (Cheiloplasty). Which position is most appropriate postoperatively?",
+            a: "Prone position to prevent aspiration.",
+            b: "Supine or side-lying on the unaffected side.",
+            c: "Sitting upright in a high chair.",
+            d: "High-Fowler’s position.",
+            k: "B",
+            str: "STR: Prone position (A) to allow drainage of oral secretions.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Prone (A) is 'STRICTLY UNSAFE' as the child may rub the suture line against the bed linens, causing dehiscence."
+        },
+        {
+            id: 79,
+            v: "Which assessment finding in a 24-hour-old neonate born to a mother with gestational diabetes should the nurse prioritize?",
+            a: "The infant's blood glucose is 45 mg/dL.",
+            b: "The infant is jittery and has a high-pitched cry.",
+            c: "The infant's birth weight is 4.2 kg.",
+            d: "The infant is sleeping soundly 3 hours after feeding.",
+            k: "B",
+            str: "STR: Reporting the 4.2 kg weight (C) as macrosomia.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Jitteriness and high-pitched cry are classic signs of symptomatic hypoglycemia. (A) is at the low end of normal but (B) shows physiological distress."
+        },
+        {
+            id: 80,
+            v: "A nurse is teaching a mother about the administration of Pancreatic Enzymes to her child with Cystic Fibrosis. Which instruction is correct?",
+            a: "Give the enzymes once a day at bedtime.",
+            b: "Give the enzymes with every meal and every snack.",
+            c: "Mix the enzymes into a bowl of hot oatmeal.",
+            d: "Administer the enzymes only if the child has diarrhea.",
+            k: "B",
+            str: "STR: Giving it once a day (A) to simplify the schedule.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Enzymes must be present in the duodenum when food arrives. (C) is 'Unsafe' (heat deactivates the enzymes)."
+        },
+        {
+            id: 81,
+            v: "A postpartum woman who is breastfeeding complains of sore, cracked nipples. What is the best nursing advice?",
+            a: "Apply a thin layer of soap to the nipples after feeding to prevent infection.",
+            b: "Apply a small amount of expressed breast milk to the nipples and let them air dry.",
+            c: "Stop breastfeeding and switch to formula until the nipples heal.",
+            d: "Use a plastic-lined breast pad to keep the area moist.",
+            k: "B",
+            str: "STR: Using soap (A) to keep the area sterile.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Breast milk has healing properties. (A) is 'Unsafe' (soap causes further drying/cracking). (D) is 'Unsafe' (promotes yeast growth)."
+        },
+        {
+            id: 82,
+            v: "A 10-year-old child with Sickle Cell Anemia is admitted for a Vaso-occlusive crisis. The nurse notes the child’s pulse oximetry is 88%. What is the priority?",
+            a: "Administer a dose of Meperidine (Demerol) for pain.",
+            b: "Administer oxygen as prescribed and increase IV fluid rate.",
+            c: "Encourage the child to use an incentive spirometer.",
+            d: "Apply cold compresses to the child’s extremities.",
+            k: "B",
+            str: "STR: Using Demerol (A) for severe pain management.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Oxygen and hydration prevent further sickling. (A) is 'Unsafe' in children due to the risk of seizures from normeperidine accumulation."
+        },
+        {
+            id: 83,
+            v: "A woman at 30 weeks gestation is diagnosed with a total Placenta Previa. She starts to have heavy vaginal bleeding. What is the nurse's first action?",
+            a: "Perform a vaginal exam to check the source of bleeding.",
+            b: "Initiate an IV line and notify the surgical team for a C-section.",
+            c: "Administer a dose of Terbutaline to stop contractions.",
+            d: "Place the patient in a Trendelenburg position.",
+            k: "B",
+            str: "STR: Performing a vaginal exam (A) to assess the placenta.",
+            scfhs: "SCFHS: (B) 'Safe Action'. (A) is 'STRICTLY UNSAFE' in Previa. Sudden heavy bleeding is a surgical emergency."
+        },
+        {
+            id: 84,
+            v: "A 2-year-old child is suspected of having Pinworms (Enterobiasis). Which diagnostic test should the nurse instruct the parents to perform?",
+            a: "A 24-hour stool collection for fat content.",
+            b: "A 'Tape Test' (adhesive tape applied to the perianal area) early in the morning.",
+            c: "A blood culture for parasites.",
+            d: "An abdominal X-ray.",
+            k: "B",
+            str: "STR: Collecting stool for 24 hours (A).",
+            scfhs: "SCFHS: (B) 'Safe Action'. Pinworms come out at night to lay eggs. (A, C, D) will not detect pinworms."
+        },
+        {
+            id: 85,
+            v: "A nurse is caring for a neonate with Gastrochisis. What is the priority nursing action before surgery?",
+            a: "Feed the neonate via a small-bore NG tube.",
+            b: "Cover the exposed bowel with a sterile, moist, non-adherent dressing and plastic wrap.",
+            c: "Place the neonate in a prone position.",
+            d: "Apply a tight abdominal binder to keep the organs in place.",
+            k: "B",
+            str: "STR: Feeding via NG tube (A) to maintain nutrition.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Prevents infection and fluid loss. (A) is 'Unsafe' (NPO status required). (C) is 'Unsafe' (pressure on organs)."
+        },
+        {
+            id: 86,
+            v: "A 16-year-old girl with Anorexia Nervosa is admitted. Which clinical finding should the nurse prioritize as a life-threatening complication?",
+            a: "Presence of lanugo on the back.",
+            b: "Bradycardia and cardiac arrhythmias.",
+            c: "Amenorrhea for the last 6 months.",
+            d: "Dry, flaky skin.",
+            k: "B",
+            str: "STR: Reporting the lanugo (A) as it indicates severe malnutrition.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Electrolyte imbalances lead to heart failure/arrhythmias. (A, C, D) are expected but not immediately fatal."
+        },
+        {
+            id: 87,
+            v: "A woman 12 hours postpartum following a long labor is unable to void. What should the nurse do first?",
+            a: "Perform an immediate straight catheterization.",
+            b: "Assist the patient to the bathroom and turn on the water faucet.",
+            c: "Administer a dose of Furosemide.",
+            d: "Palpate the fundus for firmness.",
+            k: "B",
+            str: "STR: Catheterizing immediately (A) to empty the bladder.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Non-invasive measures first. Catheterization is invasive and increases infection risk."
+        },
+        {
+            id: 88,
+            v: "An infant is diagnosed with Pyloric Stenosis. Which acid-base imbalance is most likely to occur due to the characteristic vomiting?",
+            a: "Metabolic Acidosis.",
+            b: "Metabolic Alkalosis.",
+            c: "Respiratory Acidosis.",
+            d: "Respiratory Alkalosis.",
+            k: "B",
+            str: "STR: Metabolic Acidosis (A) due to loss of fluid.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Loss of gastric hydrochloric acid (HCl) results in a rise in blood pH (alkalosis)."
+        },
+        {
+            id: 89,
+            v: "A 3-year-old child is admitted for a diagnostic workup of Leukemia. Which assessment finding is most characteristic of this disease?",
+            a: "Splenomegaly and weight gain.",
+            b: "Petechiae, pallor, and frequent infections.",
+            c: "Increased energy and hyperactivity.",
+            d: "Clear, healthy-looking skin.",
+            k: "B",
+            str: "STR: Weight gain (A) due to tumor growth.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Bone marrow failure leads to low RBCs (pallor), low Platelets (petechiae), and low WBCs (infection)."
+        },
+        {
+            id: 90,
+            v: "A woman at 28 weeks gestation is receiving Magnesium Sulfate for preterm labor. Which finding would cause the nurse to hold the next dose?",
+            a: "Deep tendon reflexes are 2+.",
+            b: "Respiratory rate is 9 breaths per minute.",
+            c: "Urinary output is 40 mL per hour.",
+            d: "Fetal heart rate is 140 bpm.",
+            k: "B",
+            str: "STR: Holding it for a respiratory rate of 14 (normal).",
+            scfhs: "SCFHS: (B) 'Safe Action'. RR < 12 is a sign of Magnesium toxicity. (A, C, D) are normal findings."
+        },
+        {
+            id: 91,
+            v: "A child is diagnosed with Scabies. What should the nurse include in the discharge teaching for the parents?",
+            a: "Only the child needs to be treated with the medicated cream.",
+            b: "Treat all family members and close contacts simultaneously.",
+            c: "The child can return to school 1 hour after the first treatment.",
+            d: "Wash all linens in cold water and air dry them.",
+            k: "B",
+            str: "STR: Only treating the child (A) to save on medication costs.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Scabies is highly contagious. (D) is 'Unsafe' (requires hot water and high heat drying)."
+        },
+        {
+            id: 92,
+            v: "A pregnant woman in her third trimester reports feeling dizzy and faint when lying on her back. What is the best nursing intervention?",
+            a: "Advise her to lie in a supine position with her head elevated.",
+            b: "Advise her to turn onto her left side.",
+            c: "Instruct her to breathe into a paper bag.",
+            d: "Notify the provider of a potential cardiac defect.",
+            k: "B",
+            str: "STR: Elevating the head in a supine position (A).",
+            scfhs: "SCFHS: Supine Hypotension Syndrome. (B) 'Safe Action' to relieve pressure on the inferior vena cava. (A) is 'Unsafe' as it doesn't relieve the pressure."
+        },
+        {
+            id: 93,
+            v: "A 5-year-old child is diagnosed with Acute Lymphocytic Leukemia (ALL) and is receiving Chemotherapy. Which assessment is most important during the 'induction' phase?",
+            a: "Daily height measurements.",
+            b: "Monitoring for signs of Tumor Lysis Syndrome (e.g., hyperkalemia).",
+            c: "Checking for a permanent tooth eruption.",
+            d: "Assessing for the presence of a Moro reflex.",
+            k: "B",
+            str: "STR: Daily height (A) to check for growth stunting.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Rapid destruction of many leukemia cells can cause life-threatening electrolyte imbalances."
+        },
+        {
+            id: 94,
+            v: "A woman 24 hours post-delivery has a temperature of 38.2°C. What is the nurse's first action?",
+            a: "Notify the physician of a postpartum infection.",
+            b: "Encourage increased fluid intake and reassess in 4 hours.",
+            c: "Administer the prescribed broad-spectrum antibiotic.",
+            d: "Place the patient in strict isolation.",
+            k: "B",
+            str: "STR: Immediately giving antibiotics (C).",
+            scfhs: "SCFHS: (B) 'Safe Action'. Dehydration is a common cause of fever in the first 24 hours. (A) is only considered if the fever persists after 24 hours."
+        },
+        {
+            id: 95,
+            v: "A child with a history of seizures is admitted for a diagnostic EEG. What should the nurse instruct the parents to do before the test?",
+            a: "Wash the child's hair and keep it free of oils and sprays.",
+            b: "Ensure the child is well-rested and has slept 10 hours.",
+            c: "Keep the child NPO for 12 hours before the test.",
+            d: "Give the child a double dose of their anti-seizure medication.",
+            k: "A",
+            str: "STR: Keeping the child NPO (C).",
+            scfhs: "SCFHS: (A) 'Safe Action'. Oils interfere with electrode contact. (B) is incorrect (sleep deprivation is often requested). (D) is 'Unsafe'."
+        },
+        {
+            id: 96,
+            v: "A woman at 38 weeks gestation is in labor. The fetal monitor shows 'Early Decelerations'. What does this indicate?",
+            a: "Uteroplacental insufficiency.",
+            b: "Fetal head compression.",
+            c: "Umbilical cord compression.",
+            d: "Fetal hypoxia.",
+            k: "B",
+            str: "STR: Umbilical cord compression (C).",
+            scfhs: "SCFHS: (B) 'Safe Action'. Early decelerations are benign and normal as the head descends. (A) is for Late Decelerations."
+        },
+        {
+            id: 97,
+            v: "A 2-year-old child is suspected of having Laryngotracheobronchitis (Coup). Which clinical finding is the most hallmark?",
+            a: "A 'strawberry' tongue.",
+            b: "A 'barking' seal-like cough.",
+            c: "Drooling and a high fever.",
+            d: "Painless abdominal mass.",
+            k: "B",
+            str: "STR: Drooling (C) as the main sign.",
+            scfhs: "SCFHS: (B) 'Safe Action'. (C) is for Epiglottitis. (A) is for Kawasaki or Scarlet Fever."
+        },
+        {
+            id: 98,
+            v: "A postpartum woman who is Rh-negative is being discharged. She had an uncomplicated delivery of an Rh-negative baby. Does she need RhoGAM?",
+            a: "Yes, it must be given within 72 hours.",
+            b: "No, RhoGAM is not indicated in this case.",
+            c: "Yes, but it can be given at her 6-week checkup.",
+            d: "Only if she plan to have another baby.",
+            k: "B",
+            str: "STR: Yes (A) to be safe for future babies.",
+            scfhs: "SCFHS: (B) 'Safe Action'. If the baby is Rh-negative, no sensitization occurred. RhoGAM is only for Rh-negative mothers with Rh-positive babies."
+        },
+        {
+            id: 99,
+            v: "A 4-year-old child is diagnosed with Hemophilia A. The child has an acute painful swelling of the knee joint. What is the priority nursing action?",
+            a: "Apply a warm heating pad to the knee.",
+            b: "Elevate the leg and apply ice to the joint.",
+            c: "Encourage the child to perform active range of motion exercises.",
+            d: "Administer Aspirin for the pain.",
+            k: "B",
+            str: "STR: Warming the joint (A) to improve circulation.",
+            scfhs: "SCFHS: (B) 'Safe Action' (RICE). (A) is 'Unsafe' (increases bleeding). (D) is 'Unsafe' (inhibits platelet function)."
+        },
+        {
+            id: 100,
+            v: "A nurse is teaching a mother about the 'Back to Sleep' campaign. What is the rationale for this program?",
+            a: "To prevent infant aspiration during sleep.",
+            b: "To reduce the incidence of Sudden Infant Death Syndrome (SIDS).",
+            c: "To encourage better spinal development.",
+            d: "To prevent the baby from developing a flat head.",
+            k: "B",
+            str: "STR: To prevent aspiration (A).",
+            scfhs: "SCFHS: (B) 'Safe Action'. Supine sleeping is the #1 way to prevent SIDS. (A) was an old myth that has been disproven."
+        },
+        {
+            id: 101,
+            v: "A 2-year-old child is admitted with suspected Bacterial Meningitis. Which isolation precaution should the nurse implement immediately?",
+            a: "Standard precautions only.",
+            b: "Droplet precautions.",
+            c: "Airborne precautions.",
+            d: "Contact precautions.",
+            k: "B",
+            str: "STR: Airborne precautions (C) because meningitis is highly contagious through air.",
+            scfhs: "SCFHS: (B) is 'Safe Action'. Neisseria meningitidis is transmitted via large droplets. (C) is for TB/Measles. (A) is 'Unsafe' (risk of hospital outbreak)."
+        },
+        {
+            id: 102,
+            v: "A woman at 32 weeks gestation is diagnosed with Polyhydramnios. What is the most important fetal assessment to perform?",
+            a: "Checking for fetal limb movements.",
+            b: "Assessing for fetal gastrointestinal anomalies (e.g., esophageal atresia).",
+            c: "Monitoring for fetal macrosomia.",
+            d: "Checking for fetal anemia.",
+            k: "B",
+            str: "STR: Checking for macrosomia (C) as the cause of high fluid.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Polyhydramnios is often associated with fetal inability to swallow fluid. (D) is associated with Oligohydramnios."
+        },
+        {
+            id: 103,
+            v: "A nurse is caring for a 6-month-old infant post-VP Shunt placement for Hydrocephalus. Which sign indicates increased intracranial pressure (ICP)?",
+            a: "Depressed anterior fontanelle.",
+            b: "High-pitched cry and bulging fontanelle.",
+            c: "Increased appetite and weight gain.",
+            d: "Tachycardia and tachypnea.",
+            k: "B",
+            str: "STR: Depressed fontanelle (A) because the shunt is working too well.",
+            scfhs: "SCFHS: (B) 'Safe Action'. High-pitched cry is a hallmark of ICP in infants. (A) is a sign of dehydration or over-drainage."
+        },
+        {
+            id: 104,
+            v: "A woman in active labor has a history of Genital Herpes with active lesions on the vulva. What is the priority nursing action?",
+            a: "Administer Acyclovir and allow vaginal delivery.",
+            b: "Prepare the patient for an immediate Cesarean section.",
+            c: "Clean the lesions with povidone-iodine before delivery.",
+            d: "Perform an internal fetal monitoring for better accuracy.",
+            k: "B",
+            str: "STR: Cleaning the lesions (C) to prevent transmission during birth.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Active lesions require C-section to prevent neonatal herpes (which is fatal). (D) is 'STRICTLY UNSAFE' (breaks fetal skin barrier)."
+        },
+        {
+            id: 105,
+            v: "A 5-year-old child is receiving a blood transfusion. 15 minutes after the start, the child complains of back pain and has a fever. What is the first action?",
+            a: "Slow the infusion rate and notify the doctor.",
+            b: "Stop the infusion and run normal saline in a new line.",
+            c: "Administer a dose of Acetaminophen.",
+            d: "Check the child's blood pressure.",
+            k: "B",
+            str: "STR: Slowing the rate (A) to see if the symptoms resolve.",
+            scfhs: "SCFHS: Hemolytic Reaction. (B) is 'Safe Action'. Any reaction requires immediate cessation. (A) is 'Unsafe' (continues the exposure)."
+        },
+        {
+            id: 106,
+            v: "A nurse is teaching a mother how to use a Pavlik harness for her infant's hip dysplasia. Which instruction is correct?",
+            a: "Adjust the straps every day to keep them as tight as possible.",
+            b: "Place the harness over a thin t-shirt and socks to protect the skin.",
+            c: "Remove the harness for 4 hours every day for skin rest.",
+            d: "Apply lotion or powder under the straps to prevent friction.",
+            k: "B",
+            str: "STR: Tightening straps daily (A) for faster correction.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Protects skin from breakdown. (A) and (C) should only be done by the provider. (D) is 'Unsafe' (causes skin maceration)."
+        },
+        {
+            id: 107,
+            v: "A woman who is 32 weeks pregnant is admitted with Preterm Rupture of Membranes (PROM). Which assessment finding is most critical to report?",
+            a: "Leakage of clear fluid from the vagina.",
+            b: "Maternal heart rate of 120 bpm and foul-smelling discharge.",
+            c: "Fetal heart rate of 140 bpm.",
+            d: "Presence of Braxton Hicks contractions.",
+            k: "B",
+            str: "STR: Clear fluid leakage (A) as it confirms the diagnosis.",
+            scfhs: "SCFHS: Chorioamnionitis. (B) is 'Safe Action' (infection sign). (A) is expected in PROM. (B) requires immediate medical intervention."
+        },
+        {
+            id: 108,
+            v: "A child with Asthma is using a Metered-Dose Inhaler (MDI). What is the purpose of using a 'spacer' device?",
+            a: "To make the inhaler look less intimidating to the child.",
+            b: "To ensure more medication reaches the lower airways.",
+            c: "To reduce the amount of medication needed.",
+            d: "To prevent the child from coughing during administration.",
+            k: "B",
+            str: "STR: Making it look less intimidating (A).",
+            scfhs: "SCFHS: (B) 'Safe Action'. Spacers compensate for poor hand-breath coordination in children, ensuring delivery to the lungs instead of the throat."
+        },
+        {
+            id: 109,
+            v: "A postpartum woman (G1P1) expresses concern about her 2-day-old infant’s weight loss of 7% since birth. What is the best nursing response?",
+            a: "This is a serious concern; we must start formula supplementation.",
+            b: "This is normal; newborns typically lose up to 10% of their weight.",
+            c: "Your breast milk is likely insufficient for the baby.",
+            d: "We need to run blood tests to check for dehydration.",
+            k: "B",
+            str: "STR: Starting formula (A) to prevent further loss.",
+            scfhs: "SCFHS: (B) 'Safe Action'. (A) and (C) are 'Unsafe' as they undermine breastfeeding and ignore normal neonatal physiology."
+        },
+        {
+            id: 110,
+            v: "A 10-year-old child with a history of Type 1 Diabetes is admitted with Kussmaul respirations and fruity breath. Which lab value is most expected?",
+            a: "Blood pH of 7.45.",
+            b: "Serum bicarbonate (HCO3) of 12 mEq/L.",
+            c: "Blood glucose of 90 mg/dL.",
+            d: "Negative ketones in the urine.",
+            k: "B",
+            str: "STR: Blood pH of 7.45 (A) showing compensation.",
+            scfhs: "SCFHS: Diabetic Ketoacidosis (DKA). (B) 'Safe Action'. Low HCO3 indicates metabolic acidosis. (A) would be alkalosis; (C) is too low for DKA."
+        },
+        {
+            id: 111,
+            v: "A nurse is assessing a woman 1 hour post-delivery. The fundus is firm, but there is a steady trickle of bright red vaginal blood. What does the nurse suspect?",
+            a: "Uterine atony.",
+            b: "Vaginal or cervical laceration.",
+            c: "Retained placental fragments.",
+            d: "Disseminated intravascular coagulation (DIC).",
+            k: "B",
+            str: "STR: Uterine atony (A) because of the bleeding.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Bleeding with a *firm* fundus suggests a laceration. (A) would result in a *boggy* fundus."
+        },
+        {
+            id: 112,
+            v: "A child is diagnosed with Acute Glomerulonephritis. What is the priority nursing intervention during the acute phase?",
+            a: "Encouraging a high-protein diet.",
+            b: "Monitoring blood pressure every 4 hours.",
+            c: "Administering a dose of Vitamin K.",
+            d: "Encouraging the child to play in the hallway.",
+            k: "B",
+            str: "STR: Giving Vitamin K (C) to prevent bleeding.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Hypertension is a dangerous complication of glomerulonephritis. (D) is 'Unsafe' (requires bed rest)."
+        },
+        {
+            id: 113,
+            v: "A pregnant woman at 24 weeks gestation is diagnosed with Gestational Diabetes. Which test was likely used for this diagnosis?",
+            a: "A 1-hour glucose challenge test followed by a 3-hour OGTT.",
+            b: "A random blood sugar check of 110 mg/dL.",
+            c: "A urine dipstick for glucose.",
+            d: "A Hemoglobin A1C of 5.0%.",
+            k: "A",
+            str: "STR: Urine dipstick (C) as it's the easiest screening.",
+            scfhs: "SCFHS: (A) 'Safe Action'. This is the standard diagnostic protocol. (C) is unreliable for diagnosis during pregnancy."
+        },
+        {
+            id: 114,
+            v: "A child has a positive 'Gowers’ sign' (using hands to walk up the legs to stand). Which condition does the nurse suspect?",
+            a: "Cerebral Palsy.",
+            b: "Duchenne Muscular Dystrophy.",
+            c: "Spina Bifida.",
+            d: "Juvenile Rheumatoid Arthritis.",
+            k: "B",
+            str: "STR: Cerebral Palsy (A) due to muscle weakness.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Gowers' sign is the classic indicator of pelvic girdle weakness in DMD."
+        },
+        {
+            id: 115,
+            v: "A woman at 38 weeks gestation is having a non-stress test (NST). The nurse notes fetal heart rate 'Late Decelerations' during spontaneous contractions. What is the priority?",
+            a: "Ask the mother to walk to stimulate the baby.",
+            b: "Turn the mother to her left side and start oxygen.",
+            c: "Document as a normal finding and discharge.",
+            d: "Perform a vaginal exam immediately.",
+            k: "B",
+            str: "STR: Walking (A) to get the baby moving.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Late decelerations indicate fetal distress/hypoxia. (A) is 'Unsafe' (worsens distress)."
+        },
+        {
+            id: 116,
+            v: "A neonate has been diagnosed with Gastroschisis. Which maternal factor is most commonly associated with this condition?",
+            a: "Advanced maternal age (>35 years).",
+            b: "Young maternal age and smoking.",
+            c: "Gestational diabetes.",
+            d: "Maternal obesity.",
+            k: "B",
+            str: "STR: Advanced age (A) as with most birth defects.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Gastroschisis is unique in that it is more common in younger mothers (<20s) and associated with smoking."
+        },
+        {
+            id: 117,
+            v: "A 4-year-old child is diagnosed with Hemolytic Uremic Syndrome (HUS). Which triad of symptoms is characteristic of this condition?",
+            a: "Fever, rash, and joint pain.",
+            b: "Anemia, thrombocytopenia, and acute renal failure.",
+            c: "Polyuria, polydipsia, and polyphagia.",
+            d: "Edema, hypertension, and proteinuria.",
+            k: "B",
+            str: "STR: Fever, rash, and pain (A).",
+            scfhs: "SCFHS: (B) 'Safe Action'. HUS often follows an E. coli infection. (D) is the triad for Nephritic Syndrome."
+        },
+        {
+            id: 118,
+            v: "A woman 24 hours postpartum is breastfeeding. She reports that her breasts feel very full, hard, and painful. What is the best instruction?",
+            a: "Apply ice packs and stop breastfeeding for 24 hours.",
+            b: "Use warm compresses and frequent breastfeeding/pumping.",
+            c: "Limit her fluid intake to 1 liter per day.",
+            d: "Bind the breasts tightly with an elastic bandage.",
+            k: "B",
+            str: "STR: Stopping breastfeeding (A) until the pain goes away.",
+            scfhs: "SCFHS: Engorgement. (B) 'Safe Action'. Emptying the breast is the only solution. (D) is 'Unsafe' (for non-breastfeeding mothers only)."
+        },
+        {
+            id: 119,
+            v: "An infant is admitted with a 'machinery-like' heart murmur. Which defect does the nurse suspect?",
+            a: "Ventricular Septal Defect (VSD).",
+            b: "Patent Ductus Arteriosus (PDA).",
+            c: "Tetralogy of Fallot.",
+            d: "Coarctation of the Aorta.",
+            k: "B",
+            str: "STR: VSD (A) as it is the most common.",
+            scfhs: "SCFHS: (B) 'Safe Action'. This specific murmur is the hallmark of PDA."
+        },
+        {
+            id: 120,
+            v: "A woman in the fourth stage of labor has a heart rate of 115 bpm and a BP of 88/50 mmHg. The fundus is boggy. What is the priority?",
+            a: "Monitor the patient for another 15 minutes.",
+            b: "Perform fundal massage and increase IV fluids/Oxytocin.",
+            c: "Give the patient a glass of orange juice.",
+            d: "Place the patient in a high-Fowler’s position.",
+            k: "B",
+            str: "STR: Orange juice (C) to raise her blood pressure.",
+            scfhs: "SCFHS: Hemorrhagic Shock. (B) is 'Safe Action'. (D) is 'Unsafe' (decreases cerebral perfusion). (C) is irrelevant for blood loss."
+        }
+      ];
+
+        let examQuestions = [];
+        let currentIdx = 0;
+        let score = 0;
+        let timer;
+        let seconds = 0;
+
+        // FUNGSI ROLLING / SHUFFLE
+        function shuffle(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        function startExam() {
+            const name = document.getElementById('candidate-name').value;
+            if (!name) return alert("Please enter your name!");
+
+            document.getElementById('display-name').innerText = name;
+            document.getElementById('welcome-screen').classList.remove('active');
+            document.getElementById('exam-screen').classList.add('active');
+
+            // Persiapkan Soal (Acak)
+            examQuestions = shuffle([...rawQuestions]);
+            currentIdx = 0;
+            score = 0;
+            
+            startTimer();
+            renderQuestion();
+        }
+
+        function startTimer() {
+            timer = setInterval(() => {
+                seconds++;
+                let m = Math.floor(seconds / 60).toString().padStart(2, '0');
+                let s = (seconds % 60).toString().padStart(2, '0');
+                document.getElementById('timer-text').innerText = `${m}:${s}`;
+            }, 1000);
+        }
+
+        function renderQuestion() {
+            const q = examQuestions[currentIdx];
+            document.getElementById('progress-text').innerText = `Q ${currentIdx + 1}/${examQuestions.length}`;
+            document.getElementById('vignette').innerText = q.v;
+            document.getElementById('rationale-area').style.display = 'none';
+            
+            const optionsDiv = document.getElementById('options');
+            optionsDiv.innerHTML = '';
+
+            ['a', 'b', 'c', 'd'].forEach(key => {
+                const btn = document.createElement('div');
+                btn.className = 'opt';
+                btn.innerText = `${key.toUpperCase()}. ${q[key]}`;
+                btn.onclick = () => selectAnswer(btn, key.toUpperCase());
+                optionsDiv.appendChild(btn);
+            });
+        }
+
+        let selectedAns = null;
+        function selectAnswer(el, val) {
+            document.querySelectorAll('.opt').forEach(o => o.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedAns = val;
+        }
+
+        function showRationale() {
+            const q = examQuestions[currentIdx];
+            const area = document.getElementById('rationale-area');
+            area.style.display = 'block';
+            area.innerHTML = `<strong>Correct Answer: ${q.k}</strong><br>${q.r}`;
+        }
+
+        function nextQuestion() {
+            if (!selectedAns) return alert("Please select an answer first!");
+
+            // Cek Jawaban
+            if (selectedAns === examQuestions[currentIdx].k) {
+                score++;
+            }
+
+            selectedAns = null;
+            currentIdx++;
+
+            if (currentIdx < examQuestions.length) {
+                renderQuestion();
+            } else {
+                finishExam();
+            }
+        }
+
+        function finishExam() {
+            clearInterval(timer);
+            document.getElementById('exam-screen').classList.remove('active');
+            document.getElementById('result-screen').classList.add('active');
+            
+            const finalScore = Math.round((score / examQuestions.length) * 100);
+            document.getElementById('score-display').innerText = `${finalScore}%`;
+            
+            let feedback = finalScore >= 70 ? "Excellent! You are ready for the Prometric." : "Keep studying. You need at least 70% to pass.";
+            document.getElementById('feedback-text').innerText = feedback;
+        }
+    </script>
+</body>
+</html>
