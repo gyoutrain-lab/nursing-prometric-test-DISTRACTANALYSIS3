@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SCFHS Mock Test Simulator| Maternity and Pediatric</title>
+    <title>SCFHS Nursing Simulator - Level 4</title>
     <style>
         :root {
             --primary: #1a2a6c;
@@ -11,6 +11,7 @@
             --accent: #fdbb2d;
             --bg: #f8f9fa;
             --text: #333;
+            --success: #28a745;
         }
 
         body {
@@ -20,18 +21,16 @@
             color: var(--text);
         }
 
-        /* SCREEN MANAGEMENT */
         .screen { display: none; padding: 20px; max-width: 900px; margin: auto; }
         .active { display: block; }
 
-        /* WELCOME SCREEN */
-        .welcome-card {
+        .welcome-card, .result-card {
             background: white;
             padding: 40px;
             border-radius: 15px;
             text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            margin-top: 100px;
+            margin-top: 50px;
         }
 
         input[type="text"] {
@@ -43,7 +42,6 @@
             font-size: 1rem;
         }
 
-        /* HEADER EXAM */
         .exam-header {
             background: var(--primary);
             color: white;
@@ -54,9 +52,9 @@
             position: sticky;
             top: 0;
             z-index: 100;
+            border-radius: 0 0 10px 10px;
         }
 
-        /* QUIZ CARD */
         .quiz-card {
             background: white;
             padding: 30px;
@@ -66,7 +64,7 @@
         }
 
         .vignette {
-            font-size: 1.2rem;
+            font-size: 1.15rem;
             font-weight: 600;
             line-height: 1.6;
             margin-bottom: 25px;
@@ -74,35 +72,33 @@
             padding-left: 15px;
         }
 
-        .options-grid {
-            display: grid;
-            gap: 12px;
-        }
+        .options-grid { display: grid; gap: 12px; }
 
         .opt {
             padding: 15px;
             border: 2px solid #eee;
             border-radius: 8px;
             cursor: pointer;
-            transition: 0.3s;
+            transition: 0.2s;
             background: #fff;
             font-weight: 500;
+            text-align: left;
         }
 
         .opt:hover { background: #f0f4ff; border-color: var(--primary); }
         .opt.selected { background: var(--primary); color: white; border-color: var(--primary); }
 
-        /* RATIONALE */
         #rationale-area {
             margin-top: 20px;
             padding: 20px;
-            background: #fff3cd;
+            background: #e7f3ff;
+            border-left: 5px solid var(--primary);
             border-radius: 8px;
             display: none;
-            border: 1px solid #ffeeba;
+            font-size: 0.95rem;
+            line-height: 1.5;
         }
 
-        /* BUTTONS */
         .btn {
             padding: 12px 25px;
             border: none;
@@ -110,30 +106,26 @@
             cursor: pointer;
             font-weight: bold;
             text-transform: uppercase;
+            transition: 0.3s;
         }
 
         .btn-start { background: var(--primary); color: white; }
-        .btn-next { background: #28a745; color: white; }
+        .btn-next { background: var(--success); color: white; }
         .btn-rationale { background: var(--accent); color: #333; }
-
-        /* RESULTS */
-        .result-card {
-            background: white;
-            padding: 40px;
-            border-radius: 15px;
-            text-align: center;
-            margin-top: 50px;
-        }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
 
         .score-circle {
-            width: 150px;
-            height: 150px;
+            width: 120px;
+            height: 120px;
             border-radius: 50%;
             background: var(--primary);
             color: white;
-            line-height: 150px;
-            font-size: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
             margin: 20px auto;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -141,46 +133,46 @@
 
     <div id="welcome-screen" class="screen active">
         <div class="welcome-card">
-            <h1>SCFHS MOCK TEST V2</h1>
-            <p>Nursing Licensure Examination - Maternity and Pediatric</p>
-            <input type="text" id="candidate-name" placeholder="Enter Full Name (e.g., Nurse Ahmad)">
+            <h1>SCFHS NURSING MOCK V3</h1>
+            <p>High-Level Clinical Vignettes (Level 4 Difficulty)</p>
+            <input type="text" id="candidate-name" placeholder="Enter Full Name">
             <br>
-            <button class="btn btn-start" onclick="startExam()">Start Mock Test</button>
+            <button class="btn btn-start" onclick="startExam()">Start Examination</button>
         </div>
     </div>
 
     <div id="exam-screen" class="screen">
         <div class="exam-header">
-            <div>Candidate: <strong id="display-name"></strong></div>
-            <div id="progress-text">Q 1/100</div>
+            <div id="display-name">Candidate</div>
+            <div id="progress-text">Q 1/120</div>
             <div id="timer-text">00:00</div>
         </div>
 
         <div class="quiz-card">
-            <div id="vignette" class="vignette"></div>
+            <div id="vignette" class="vignette">Loading question...</div>
             <div id="options" class="options-grid"></div>
 
             <div id="rationale-area"></div>
 
             <div style="margin-top: 30px; display: flex; gap: 10px;">
-                <button class="btn btn-rationale" onclick="showRationale()">Rationale</button>
-                <button class="btn btn-next" onclick="nextQuestion()">Next Question</button>
+                <button class="btn btn-rationale" id="rat-btn" onclick="showRationale()" disabled>Show Rationale</button>
+                <button class="btn btn-next" id="next-btn" onclick="nextQuestion()" disabled>Next Question</button>
             </div>
         </div>
     </div>
 
     <div id="result-screen" class="screen">
         <div class="result-card">
-            <h2>Exam Completed!</h2>
+            <h2>Results Summary</h2>
             <div id="score-display" class="score-circle">0%</div>
             <p id="feedback-text"></p>
-            <button class="btn btn-start" onclick="location.reload()">Retake Exam</button>
+            <button class="btn btn-start" onclick="location.reload()">Restart</button>
         </div>
     </div>
 
-    <script>
-        // DATABASE SOAL (Bisa Anda tambah sampai ribuan)
-        const rawQuestions = [
+<script>
+    // DATA SOURCE (Replace/Add your 1-120 items here)
+    const rawQuestions = [
         {
             id: 1,
             v: "A 28-week pregnant woman presents with sudden, painless, bright red vaginal bleeding. What is the priority nursing intervention?",
@@ -1501,106 +1493,108 @@
             str: "STR: Orange juice (C) to raise her blood pressure.",
             scfhs: "SCFHS: Hemorrhagic Shock. (B) is 'Safe Action'. (D) is 'Unsafe' (decreases cerebral perfusion). (C) is irrelevant for blood loss."
         }
-      ];
+     ];
 
-        let examQuestions = [];
-        let currentIdx = 0;
-        let score = 0;
-        let timer;
-        let seconds = 0;
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let timerInterval;
+    let secondsElapsed = 0;
+    let selectedOption = null;
 
-        // FUNGSI ROLLING / SHUFFLE
-        function shuffle(array) {
-            return array.sort(() => Math.random() - 0.5);
+    function startExam() {
+        const nameInput = document.getElementById('candidate-name').value;
+        if (!nameInput) return alert("Please enter your name");
+        
+        document.getElementById('display-name').innerText = "Nurse: " + nameInput;
+        document.getElementById('welcome-screen').classList.remove('active');
+        document.getElementById('exam-screen').classList.add('active');
+        
+        startTimer();
+        loadQuestion();
+    }
+
+    function startTimer() {
+        timerInterval = setInterval(() => {
+            secondsElapsed++;
+            let mins = Math.floor(secondsElapsed / 60);
+            let secs = secondsElapsed % 60;
+            document.getElementById('timer-text').innerText = 
+                `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }, 1000);
+    }
+
+    function loadQuestion() {
+        const q = rawQuestions[currentQuestionIndex];
+        selectedOption = null;
+        
+        document.getElementById('progress-text').innerText = `Q ${currentQuestionIndex + 1}/${rawQuestions.length}`;
+        document.getElementById('vignette').innerText = q.v;
+        document.getElementById('rationale-area').style.display = 'none';
+        document.getElementById('next-btn').disabled = true;
+        document.getElementById('rat-btn').disabled = true;
+
+        const optionsDiv = document.getElementById('options');
+        optionsDiv.innerHTML = '';
+
+        const letters = ['A', 'B', 'C', 'D'];
+        const choiceTexts = [q.a, q.b, q.c, q.d];
+
+        choiceTexts.forEach((text, index) => {
+            const button = document.createElement('button');
+            button.className = 'opt';
+            button.innerText = `${letters[index]}. ${text}`;
+            button.onclick = () => selectChoice(button, letters[index]);
+            optionsDiv.appendChild(button);
+        });
+    }
+
+    function selectChoice(element, letter) {
+        const allOpts = document.querySelectorAll('.opt');
+        allOpts.forEach(opt => opt.classList.remove('selected'));
+        element.classList.add('selected');
+        
+        selectedOption = letter;
+        document.getElementById('next-btn').disabled = false;
+        document.getElementById('rat-btn').disabled = false;
+    }
+
+    function showRationale() {
+        const q = rawQuestions[currentQuestionIndex];
+        const area = document.getElementById('rationale-area');
+        
+        area.innerHTML = `
+            <p><strong>Correct Answer: ${q.k}</strong></p>
+            <p><strong>Strategy:</strong> ${q.str}</p>
+            <p><strong>Rationale:</strong> ${q.scfhs}</p>
+        `;
+        area.style.display = 'block';
+    }
+
+    function nextQuestion() {
+        if (selectedOption === rawQuestions[currentQuestionIndex].k) {
+            score++;
         }
 
-        function startExam() {
-            const name = document.getElementById('candidate-name').value;
-            if (!name) return alert("Please enter your name!");
+        currentQuestionIndex++;
 
-            document.getElementById('display-name').innerText = name;
-            document.getElementById('welcome-screen').classList.remove('active');
-            document.getElementById('exam-screen').classList.add('active');
-
-            // Persiapkan Soal (Acak)
-            examQuestions = shuffle([...rawQuestions]);
-            currentIdx = 0;
-            score = 0;
-            
-            startTimer();
-            renderQuestion();
+        if (currentQuestionIndex < rawQuestions.length) {
+            loadQuestion();
+        } else {
+            finishExam();
         }
+    }
 
-        function startTimer() {
-            timer = setInterval(() => {
-                seconds++;
-                let m = Math.floor(seconds / 60).toString().padStart(2, '0');
-                let s = (seconds % 60).toString().padStart(2, '0');
-                document.getElementById('timer-text').innerText = `${m}:${s}`;
-            }, 1000);
-        }
-
-        function renderQuestion() {
-            const q = examQuestions[currentIdx];
-            document.getElementById('progress-text').innerText = `Q ${currentIdx + 1}/${examQuestions.length}`;
-            document.getElementById('vignette').innerText = q.v;
-            document.getElementById('rationale-area').style.display = 'none';
-            
-            const optionsDiv = document.getElementById('options');
-            optionsDiv.innerHTML = '';
-
-            ['a', 'b', 'c', 'd'].forEach(key => {
-                const btn = document.createElement('div');
-                btn.className = 'opt';
-                btn.innerText = `${key.toUpperCase()}. ${q[key]}`;
-                btn.onclick = () => selectAnswer(btn, key.toUpperCase());
-                optionsDiv.appendChild(btn);
-            });
-        }
-
-        let selectedAns = null;
-        function selectAnswer(el, val) {
-            document.querySelectorAll('.opt').forEach(o => o.classList.remove('selected'));
-            el.classList.add('selected');
-            selectedAns = val;
-        }
-
-        function showRationale() {
-            const q = examQuestions[currentIdx];
-            const area = document.getElementById('rationale-area');
-            area.style.display = 'block';
-            area.innerHTML = `<strong>Correct Answer: ${q.k}</strong><br>${q.r}`;
-        }
-
-        function nextQuestion() {
-            if (!selectedAns) return alert("Please select an answer first!");
-
-            // Cek Jawaban
-            if (selectedAns === examQuestions[currentIdx].k) {
-                score++;
-            }
-
-            selectedAns = null;
-            currentIdx++;
-
-            if (currentIdx < examQuestions.length) {
-                renderQuestion();
-            } else {
-                finishExam();
-            }
-        }
-
-        function finishExam() {
-            clearInterval(timer);
-            document.getElementById('exam-screen').classList.remove('active');
-            document.getElementById('result-screen').classList.add('active');
-            
-            const finalScore = Math.round((score / examQuestions.length) * 100);
-            document.getElementById('score-display').innerText = `${finalScore}%`;
-            
-            let feedback = finalScore >= 70 ? "Excellent! You are ready for the Prometric." : "Keep studying. You need at least 70% to pass.";
-            document.getElementById('feedback-text').innerText = feedback;
-        }
-    </script>
+    function finishExam() {
+        clearInterval(timerInterval);
+        document.getElementById('exam-screen').classList.remove('active');
+        document.getElementById('result-screen').classList.add('active');
+        
+        const percent = Math.round((score / rawQuestions.length) * 100);
+        document.getElementById('score-display').innerText = percent + "%";
+        
+        const feedback = percent >= 70 ? "Excellent! You are ready for the SCFHS Exam." : "Keep practicing. Focus on Safety Protocols.";
+        document.getElementById('feedback-text').innerText = feedback;
+    }
+</script>
 </body>
 </html>
